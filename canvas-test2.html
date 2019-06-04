@@ -1,0 +1,213 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>无标题文档</title>
+<!--[if IE]><script type="text/javascript" src="excanvas.js"></script><![endif]-->
+</head>
+
+<body>
+<canvas id="canvas" width="600" height="600" style="border:solid black 1px;"></canvas>
+<br>
+日志：<pre id="log" style="border: 1px solid #ccc; height:400px;"></pre>
+<script type="text/javascript">
+window.onload = function startup() {
+  var el = document.getElementsByTagName("canvas")[0];
+  
+  addEvent(el,'touchstart',handleStart);
+  addEvent(el,'touchend',handleEnd);
+  addEvent(el,'touchmove',handleMove);
+  
+  addEvent(el,'mousedown',handleStart);
+  addEvent(el,'mouseup',handleEnd);
+  addEvent(el,'mousemove',handleMove);
+  
+  log("初始化成功。")
+}
+
+
+function addEvent(obj,type,handle){
+	try{ // Chrome、FireFox、Opera、Safari、IE9.0及其以上版本
+		obj.addEventListener(type,handle,false);
+	}catch(e){
+		try{ // IE8.0及其以下版本
+			obj.attachEvent('on' + type,handle);
+		}catch(e){ // 早期浏览器
+			obj['on' + type] = handle;
+		}
+	}
+}
+
+
+
+var ongoingTouches = [];
+
+function handleStart(evt) { 
+  //evt.preventDefault();
+  console.log("触摸开始。");
+  var el = document.getElementsByTagName("canvas")[0];
+  var ctx = el.getContext("2d");
+  var touches = evt.changedTouches;
+	
+  if(touches){
+	  
+  for (var i = 0; i < touches.length; i++) {
+    console.log("开始第 " + i + " 个触摸 ...");
+    ongoingTouches.push(copyTouch(touches[i]));
+    var color = colorForTouch(touches[i]);
+    ctx.beginPath();
+    ctx.arc(touches[i].pageX, touches[i].pageY, 4, 0, 2 * Math.PI, false);
+    // 在起点画一个圆。
+    ctx.fillStyle = color;
+    ctx.fill();
+    console.log("第 " + i + " 个触摸已开始。");
+  }
+  
+  }else{
+	
+	ctx.beginPath();
+    ctx.arc(evt.clientX, evt.clientY, 4, 0, 2 * Math.PI, false);
+    // 在起点画一个圆。
+    ctx.fillStyle = 'red';
+    ctx.fill();	
+	  
+  }
+}
+
+function handleMove(evt) {
+  //evt.preventDefault();
+  var el = document.getElementsByTagName("canvas")[0];
+  var ctx = el.getContext("2d");
+  var touches = evt.changedTouches;
+
+  if(touches){
+
+  for (var i = 0; i < touches.length; i++) {
+    var color = colorForTouch(touches[i]);
+    var idx = ongoingTouchIndexById(touches[i].identifier);
+
+    if (idx >= 0) {
+      log("继续第 " + idx + "个触摸。");
+      ctx.beginPath();
+      log("ctx.moveTo(" + ongoingTouches[idx].pageX + ", " + ongoingTouches[idx].pageY + ");");
+      ctx.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+      log("ctx.lineTo(" + touches[i].pageX + ", " + touches[i].pageY + ");");
+      ctx.lineTo(touches[i].pageX, touches[i].pageY);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+
+      ongoingTouches.splice(idx, 1, copyTouch(touches[i])); // 切换触摸信息
+      console.log(".");
+    } else {
+      log("无法确定下一个触摸点。");
+    }
+  }
+  
+  
+  }else{
+	  
+      ctx.beginPath();
+      ctx.moveTo(evt.clientX, evt.clientY);
+      ctx.lineTo(evt.clientX, evt.clientY);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'red';
+      ctx.stroke();
+
+      console.log(".");
+	  
+  }
+}
+
+function handleEnd(evt) {
+  //evt.preventDefault();
+  log("触摸结束。");
+  var el = document.getElementsByTagName("canvas")[0];
+  var ctx = el.getContext("2d");
+  var touches = evt.changedTouches;
+
+ if(touches){
+
+  for (var i = 0; i < touches.length; i++) {
+    var color = colorForTouch(touches[i]);
+    var idx = ongoingTouchIndexById(touches[i].identifier);
+
+    if (idx >= 0) {
+      ctx.lineWidth = 4;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+      ctx.lineTo(touches[i].pageX, touches[i].pageY);
+      ctx.fillRect(touches[i].pageX - 4, touches[i].pageY - 4, 8, 8);
+      // 在终点画一个正方形
+      ongoingTouches.splice(idx, 1); // 用完后移除
+    } else {
+      log("无法确定要结束哪个触摸点。");
+    }
+  }
+  
+  }else{
+  
+  	ctx.lineWidth = 4;
+	ctx.fillStyle = 'red';
+	ctx.beginPath();
+	ctx.moveTo(evt.clientX, evt.clientY);
+    ctx.lineTo(evt.clientX, evt.clientY);
+	ctx.fillRect(evt.clientX - 4, evt.clientY - 4, 8, 8);
+	// 在终点画一个正方形
+	  
+  }
+}
+
+function handleCancel(evt) {
+  evt.preventDefault();
+  console.log("触摸取消。");
+  var touches = evt.changedTouches;
+
+if(touches){
+
+  for (var i = 0; i < touches.length; i++) {
+    var idx = ongoingTouchIndexById(touches[i].identifier);
+    ongoingTouches.splice(idx, 1); // 用完后移除
+  }
+  
+}
+ 
+}
+
+function colorForTouch(touch) {
+  var r = touch.identifier % 16;
+  var g = Math.floor(touch.identifier / 3) % 16;
+  var b = Math.floor(touch.identifier / 7) % 16;
+  r = r.toString(16); // 转换为十六进制字符串
+  g = g.toString(16); // 转换为十六进制字符串
+  b = b.toString(16); // 转换为十六进制字符串
+  var color = "#" + r + g + b;
+  log("identifier " + touch.identifier + " 触摸的颜色为：" + color);
+  return color;
+}
+
+function copyTouch(touch) {
+  return { identifier: touch.identifier, pageX: touch.pageX, pageY: touch.pageY };
+}
+
+function ongoingTouchIndexById(idToFind) {
+  for (var i=0; i<ongoingTouches.length; i++) {
+    var id = ongoingTouches[i].identifier;
+    
+    if (id == idToFind) {
+      return i;
+    }
+  }
+  return -1;    // 未找到
+}
+
+function log(msg) {
+  var p = document.getElementById('log');
+  p.innerHTML = msg + "\n" + p.innerHTML;
+}
+
+</script>
+
+</body>
+</html>
